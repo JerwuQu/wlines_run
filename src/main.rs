@@ -153,11 +153,19 @@ fn cmd_run(wlines_args: Vec<String>) {
     };
     let program_path = programs.get(*choice).unwrap();
 
+    // Extract input arguments
+    let mut prog_args: Vec<String> = Vec::new();
+    if input_string.len() > choice.len() + 3 { // + 3 to compensate for surrounding quotes and a space
+        let arg_string = input_string[(choice.len() + 3)..].to_string();
+        prog_args = shlex::split(&arg_string).unwrap();
+    }
+
     // Launch it
-    // todo: add argument functionality
     println!("Starting \"{}\"\n", program_path);
+    let mut launch_args: Vec<String> = vec![String::from("/c"), program_path.clone()];
+    launch_args.append(&mut prog_args);
     Command::new("cmd")
-        .args(&["/c", program_path])
+        .args(launch_args)
         .spawn()
         .expect("Couldn't start program");
 
