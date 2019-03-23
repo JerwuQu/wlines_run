@@ -35,19 +35,21 @@ fn frecency(history: &HistoryEntry, current_time: u64) -> f64 {
     (history.rank as f64) / (((current_time as f64) - (history.access as f64)).sqrt() / 10.0 + 5.0)
 }
 
-fn index_directory(programs: &mut HashMap<String, String>, dir: &Path, recursively: bool) {
+fn index_directory(programs: &mut HashMap<String, String>, dir: &Path, prefix: &Path, recursively: bool) {
     if let Ok(rd) = fs::read_dir(dir) {
         for entry in rd {
             let path = entry.unwrap().path();
             if path.is_file() {
                 if let Some(ext) = path.extension() {
                     if EXTENSIONS.iter().any(|&e| e == ext) {
-                        // todo: prefix paths with folders
-                        programs.insert(String::from(path.file_name().unwrap().to_str().unwrap()), String::from(path.to_str().unwrap()));
+                        programs.insert(
+                            String::from(path.strip_prefix(prefix).unwrap().to_str().unwrap()),
+                            String::from(path.to_str().unwrap())
+                        );
                     }
                 }
             } else if path.is_dir() && recursively {
-                let _ = index_directory(programs, &path, true);
+                let _ = index_directory(programs, &path, prefix, true);
             }
         }
     }
@@ -55,13 +57,19 @@ fn index_directory(programs: &mut HashMap<String, String>, dir: &Path, recursive
 
 fn index_start_menu(programs: &mut HashMap<String, String>) {
     const PROG_DIR: &'static str = "/Microsoft/Windows/Start Menu/Programs";
-    index_directory(programs, Path::new(&(env::var("AppData").unwrap() + PROG_DIR)), true);
-    index_directory(programs, Path::new(&(env::var("ProgramData").unwrap() + PROG_DIR)), true);
+
+    let path_str = env::var("AppData").unwrap() + PROG_DIR;
+    let path = Path::new(&path_str);
+    index_directory(programs, path, path, true);
+
+    let path_str = env::var("ProgramData").unwrap() + PROG_DIR;
+    let path = Path::new(&path_str);
+    index_directory(programs, path, path, true);
 }
 
 fn index_path(programs: &mut HashMap<String, String>) {
     for path in env::split_paths(&env::var("PATH").unwrap()) {
-        index_directory(programs, &path, false);
+        index_directory(programs, &path, &path, false);
     }
 }
 
@@ -71,7 +79,8 @@ fn cmd_index() {
     index_path(&mut programs);
 
     let index_json_data = serde_json::to_string_pretty(&programs).unwrap();
-    fs::write(&*INDEX_PATH, index_json_data).expect("Unable to write to wlines_run_index.json");
+    fs::write(&*INDEX_PATH, index_json_data)
+        .expect("Unable to write to wlines_run_index.json");
     println!("Indexed {} programs", programs.len());
 }
 
@@ -85,7 +94,8 @@ fn cmd_run(wlines_args: Vec<String>) {
         .expect("Couldn't start wlines");
 
     // Load index
-    let index_json_data = fs::read_to_string(&*INDEX_PATH).expect("Unable to load wlines_run_index.json");
+    let index_json_data = fs::read_to_string(&*INDEX_PATH)
+        .expect("Unable to load wlines_run_index.json");
     let programs: HashMap<String, String> = serde_json::from_str(&index_json_data).unwrap();
     println!("Loaded {} indexed programs", programs.len());
 
@@ -117,7 +127,9 @@ fn cmd_run(wlines_args: Vec<String>) {
 
     // Send to wlines
     {
-        let prog_names_str = prog_names.iter().fold(String::new(), |acc, prog_name| acc + "\"" + prog_name + "\"\n");
+        let prog_names_str = prog_names
+            .iter()
+            .fold(String::new(), |acc, prog_name| acc + "\"" + prog_name + "\"\n");
         let stdin = wlines.stdin.as_mut().unwrap();
         stdin.write_all(prog_names_str.as_bytes())
             .expect("Couldn't communicate with wlines stdin");
@@ -132,7 +144,9 @@ fn cmd_run(wlines_args: Vec<String>) {
 
     // Match selection
     let input_string = String::from_utf8(output.stdout).unwrap().trim().to_string();
-    let matched_input = prog_names.iter().find(|&&a| input_string.starts_with(&format!("\"{}\"", a)));
+    let matched_input = prog_names
+        .iter()
+        .find(|&&a| input_string.starts_with(&format!("\"{}\"", a)));
     let choice = if let Some(x) = matched_input { x } else {
         println!("Unknown choice\n");
         return;
@@ -162,7 +176,8 @@ fn cmd_run(wlines_args: Vec<String>) {
     }
 
     let history_json_data = serde_json::to_string_pretty(&history).unwrap();
-    fs::write(&*HISTORY_PATH, history_json_data).expect("Unable to write to wlines_run_history.json");
+    fs::write(&*HISTORY_PATH, history_json_data)
+        .expect("Unable to write to wlines_run_history.json");
 }
 
 fn usage() {
