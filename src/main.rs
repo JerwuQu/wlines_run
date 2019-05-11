@@ -218,7 +218,12 @@ fn cmd_run(wlines_args: Vec<String>) {
 
     // Launch it
     println!("Starting \"{}\"\n", chosen_prog.1.abs_path);
-    let mut launch_args: Vec<String> = vec![String::from("/c"), chosen_prog.1.abs_path.clone()];
+    let mut launch_args: Vec<String> = vec![
+        String::from("/c"),
+        String::from("start"),
+        String::from(""),
+        chosen_prog.1.abs_path.clone(),
+    ];
     launch_args.append(&mut prog_args);
     Command::new("cmd")
         .args(launch_args)
