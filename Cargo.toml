@@ -1,6 +1,6 @@
 [package]
 name = "wlines_run"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Marcus Ramse <marcus@ramse.se>"]
 edition = "2018"
 
